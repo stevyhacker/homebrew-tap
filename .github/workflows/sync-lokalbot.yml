@@ -1,0 +1,44 @@
+name: Sync LokalBot release
+
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['Casks/lokalbot.rb', 'scripts/**', '.github/workflows/sync-lokalbot.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-lokalbot
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'stevyhacker/homebrew-tap'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+      - name: Test synchronizer
+        run: python3 -m unittest discover -s scripts -p 'test_*.py' -v
+      - name: Verify release and synchronize cask
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/sync_lokalbot.py
+      - name: Validate and publish cask update
+        run: |
+          ruby -c Casks/lokalbot.rb
+          git diff --check
+          if git diff --quiet -- Casks/lokalbot.rb; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- Casks/lokalbot.rb
+          git commit -m 'Synchronize LokalBot cask with verified stable release'
+          git push origin HEAD:main
