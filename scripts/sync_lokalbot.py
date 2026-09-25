@@ -8,7 +8,8 @@ import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
 
-REPOSITORY = "stevyhacker/lokalbot"
+# GitHub reports release asset URLs with the canonical repository name.
+REPOSITORY = "stevyhacker/LokalBot"
 SPARKLE = "{http://www.andymatuschak.org/xml-namespaces/sparkle}"
 CASK = Path(__file__).resolve().parents[1] / "Casks/lokalbot.rb"
 
