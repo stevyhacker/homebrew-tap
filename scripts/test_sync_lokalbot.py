@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from sync_lokalbot import release_info, needs_update, updated_cask, verify_assets, SPARKLE
+from sync_lokalbot import release_info, needs_update, updated_cask, verify_assets, REPOSITORY, SPARKLE
 
 
 class SyncTests(unittest.TestCase):
@@ -13,7 +13,7 @@ class SyncTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.directory = Path(self.temporary.name)
         self.version = "0.8.3"
-        self.url = "https://github.com/stevyhacker/lokalbot/releases/download/v0.8.3/"
+        self.url = f"https://github.com/{REPOSITORY}/releases/download/v0.8.3/"
         self.dmg = b"synthetic test archive"
         self.feed = (f'<rss xmlns:sparkle="{SPARKLE[1:-1]}"><channel><item>'
                      '<sparkle:shortVersionString>0.8.3</sparkle:shortVersionString>'
