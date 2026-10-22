@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from sync_lokalbot import release_info, needs_update, updated_cask, verify_assets, REPOSITORY, SPARKLE
+from sync_lokalbot import dmg_name, release_info, needs_update, updated_cask, verify_assets, REPOSITORY, SPARKLE
 
 
 class SyncTests(unittest.TestCase):
@@ -17,10 +17,10 @@ class SyncTests(unittest.TestCase):
         self.dmg = b"synthetic test archive"
         self.feed = (f'<rss xmlns:sparkle="{SPARKLE[1:-1]}"><channel><item>'
                      '<sparkle:shortVersionString>0.8.3</sparkle:shortVersionString>'
-                     f'<enclosure url="{self.url}LokalBot.dmg" length="{len(self.dmg)}" '
+                     f'<enclosure url="{self.url}{dmg_name(self.version)}" length="{len(self.dmg)}" '
                      'sparkle:edSignature="fixture"/></item></channel></rss>').encode()
         self.release = {"tag_name": "v0.8.3", "draft": False, "prerelease": False, "assets": []}
-        for name, data in [("LokalBot.dmg", self.dmg), ("appcast.xml", self.feed)]:
+        for name, data in [(dmg_name(self.version), self.dmg), ("appcast.xml", self.feed)]:
             (self.directory / name).write_bytes(data)
             self.release["assets"].append({
                 "name": name, "size": len(data), "browser_download_url": self.url + name,
@@ -51,6 +51,13 @@ class SyncTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 release_info({**self.release, "assets": assets})
 
+    def test_rejects_unversioned_dmg_name(self):
+        release = copy.deepcopy(self.release)
+        release["assets"][0]["name"] = "LokalBot.dmg"
+        release["assets"][0]["browser_download_url"] = self.url + "LokalBot.dmg"
+        with self.assertRaises(ValueError):
+            release_info(release)
+
     def test_download_counter_changes_do_not_invalidate_release(self):
         refreshed = copy.deepcopy(self.release)
         refreshed["assets"][0]["download_count"] = 42
@@ -66,7 +73,7 @@ class SyncTests(unittest.TestCase):
                     release_info(release)
 
     def test_rejects_corrupted_download(self):
-        (self.directory / "LokalBot.dmg").write_bytes(b"corrupt")
+        (self.directory / dmg_name(self.version)).write_bytes(b"corrupt")
         with self.assertRaises(ValueError):
             verify_assets(self.directory, self.version, release_info(self.release)[1])
 

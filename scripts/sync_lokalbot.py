@@ -14,12 +14,17 @@ SPARKLE = "{http://www.andymatuschak.org/xml-namespaces/sparkle}"
 CASK = Path(__file__).resolve().parents[1] / "Casks/lokalbot.rb"
 
 
+def dmg_name(version):
+    return f"LokalBot-{version}-macos-arm64.dmg"
+
+
 def release_info(release):
     tag = release["tag_name"]
     if release.get("draft") or release.get("prerelease") or not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
         raise ValueError("Only stable vMAJOR.MINOR.PATCH releases may update the cask")
+    version = tag[1:]
     assets = {}
-    for name in ("LokalBot.dmg", "appcast.xml"):
+    for name in (dmg_name(version), "appcast.xml"):
         matches = [asset for asset in release["assets"] if asset["name"] == name]
         if len(matches) != 1:
             raise ValueError(f"Release must contain exactly one {name}")
@@ -35,7 +40,7 @@ def release_info(release):
         # immutable identity/content fields when rechecking the release.
         assets[name] = {key: asset.get(key) for key in (
             "id", "name", "browser_download_url", "digest", "size")}
-    return tag[1:], assets
+    return version, assets
 
 
 def cask_field(text, field):
@@ -72,8 +77,9 @@ def verify_assets(directory, version, assets):
     enclosure = item.find("enclosure")
     if item.findtext(f"{SPARKLE}shortVersionString") != version or enclosure is None:
         raise ValueError("Appcast version does not match the release")
-    if (enclosure.get("url") != assets["LokalBot.dmg"]["browser_download_url"]
-            or enclosure.get("length") != str(assets["LokalBot.dmg"]["size"])
+    dmg = assets[dmg_name(version)]
+    if (enclosure.get("url") != dmg["browser_download_url"]
+            or enclosure.get("length") != str(dmg["size"])
             or not enclosure.get(f"{SPARKLE}edSignature")):
         raise ValueError("Appcast enclosure does not match the DMG")
 
@@ -91,7 +97,7 @@ def main():
     release = json.loads(subprocess.check_output(
         ["gh", "api", f"repos/{REPOSITORY}/releases/latest"], text=True))
     version, assets = release_info(release)
-    digest = assets["LokalBot.dmg"]["digest"].removeprefix("sha256:")
+    digest = assets[dmg_name(version)]["digest"].removeprefix("sha256:")
     original = CASK.read_text()
     if not needs_update(original, version, digest):
         print(f"LokalBot {version} is already synchronized")
@@ -99,7 +105,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="lokalbot-release-") as directory:
         subprocess.run([
             "gh", "release", "download", release["tag_name"], "--repo", REPOSITORY,
-            "--pattern", "LokalBot.dmg", "--pattern", "appcast.xml", "--dir", directory,
+            "--pattern", dmg_name(version), "--pattern", "appcast.xml", "--dir", directory,
         ], check=True)
         verify_assets(Path(directory), version, assets)
     # Recheck after download so a newer release cannot be overlooked or an
